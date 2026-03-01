@@ -28,7 +28,7 @@ def create_rtree(df):
     for idx, row in df.iterrows():
         left, bottom, right, top = row['lon'], row['lat'], row['lon'], row['lat']
         rtree.insert(idx, (left, bottom, right, top))
-    
+
     return rtree
 
 
@@ -37,8 +37,8 @@ def filterbbox(df, min_lon, min_lat, max_lon, max_lat):
     df = df.loc[df['lon'] <= max_lon]
     df = df.loc[df['lat'] >= min_lat]
     df = df.loc[df['lat'] <= max_lat]
-    df.reset_index(drop=True, inplace=True)    
-    
+    df.reset_index(drop=True, inplace=True)
+
     return df
 
 
@@ -79,8 +79,6 @@ def id2loc(df, point_id):
 
 
 def query_range_box(df, rtree, xmin, xmax, ymin, ymax):
-    
-    
     left, bottom, right, top = xmin, ymin, xmax, ymax
 
     result = list( rtree.intersection((left, bottom, right, top)) )
@@ -90,7 +88,6 @@ def query_range_box(df, rtree, xmin, xmax, ymin, ymax):
 
 def query_range(df, rtree, center, radius):
     ## for now returns points within square
-    
     lat, lon = id2loc(df, center)
 
     left, bottom, right, top = lon - radius, lat - radius, lon + radius, lat + radius
@@ -115,23 +112,22 @@ def query_nn(df, rtree, center, k):
 
 
 def create_seeds(df, rtree, n_seeds):
-    
     # Compute clusters with k-means
     X = df[['lon', 'lat']].to_numpy()
     kmeans = KMeans(n_clusters=n_seeds, n_init='auto').fit(X)
     cluster_labels = kmeans.labels_
     cluster_centers = kmeans.cluster_centers_
-    
+
     # Pick seeds from cluster centroids
     seeds = []
     for c in cluster_centers:
         seeds.append(list(rtree.nearest([c[0], c[1]], 1))[0])
-    
+
     return seeds
 
 
 def compute_max_likeli(n, p, N, P):
-    
+
     ## l1max =  p*math.log(rho_in) + (n-p)*math.log(1-rho_in) + (P-p)*math.log(rho_out) + (N-n - (P-p))*math.log(1-rho_out)
     ## handle extreme cases
 
@@ -170,7 +166,7 @@ def compute_statistic(n, p, N, P, direction='both', verbose=False):
 
 
     if n == 0 or n == N: ## rho_in == 0/0 or rho_out == 0/0
-        return 0 
+        return 0
 
 
     rho = P/N
@@ -179,8 +175,8 @@ def compute_statistic(n, p, N, P, direction='both', verbose=False):
 
     if verbose:
         print(f'{rho=}, {rho_in=}, {rho_out=}')
-    
-    l0max = P*math.log(rho) + (N-P)*math.log(1-rho)    
+
+    l0max = P*math.log(rho) + (N-P)*math.log(1-rho)
 
 
     if direction == 'less_in':
@@ -204,7 +200,7 @@ def compute_statistic(n, p, N, P, direction='both', verbose=False):
     if verbose:
         print(f'{l0max=}, {l1max=}, {statistic=}')
 
-    return statistic 
+    return statistic
 
 
 
@@ -212,15 +208,15 @@ def compute_statistic(n, p, N, P, direction='both', verbose=False):
 def create_regions(df, rtree, seeds, radii):
     regions = []
     for seed in seeds:
-        for radius in radii: 
+        for radius in radii:
             points = query_range(df, rtree, seed, radius)
             region = {
                 'points' : points,
                 'center' : seed,
-                'radius' : radius,  
+                'radius' : radius,
             }
             regions.append(region)
-    
+
     return regions
 
 
@@ -232,7 +228,7 @@ def scan_regions(regions, types, N, P, direction='both', verbose=False):
         n, p, rho = get_simple_stats(region['points'], types)
 
         statistics.append(compute_statistic(n, p, N, P, direction=direction))
-    
+
     idx = np.argmax(statistics)
 
     max_likelihood = statistics[idx]
@@ -243,7 +239,7 @@ def scan_regions(regions, types, N, P, direction='both', verbose=False):
         n, p, rho = get_simple_stats(regions[idx]['points'], types)
         # print(f"at ({regions[idx]['center']}, {regions[idx]['radius']})" )
         compute_statistic(n, p, N, P, direction=direction, verbose=verbose)
-    
+
     return regions[idx], max_likelihood, statistics
 
 
@@ -305,7 +301,7 @@ def scan_partitioning(regions, types):
 def create_points(n, rho):
     points = []
     types = np.random.binomial(size=n, n=1, p=rho)
-    
+
     # guarantee n * rho positives
     n_pos = int(n * rho)
     while np.sum(types) != n_pos:
@@ -319,7 +315,7 @@ def create_points(n, rho):
         x = random.random()
         y = random.random()
         points.append((x,y))
-        
+
     return points, types
 
 
@@ -340,7 +336,7 @@ def show_grid_region(df, grid_info, types, region):
 
     i, j = region['grid_loc']
 
-    mapit = folium.Map(location=[37.09, -95.71], zoom_start=5, tiles="Stamen Toner")
+    mapit = folium.Map(location=[37.09, -95.71], zoom_start=5, tiles="CartoDB positron")
 
     # pos_group = folium.FeatureGroup("Positive")
     # neg_group = folium.FeatureGroup("Negative")
@@ -381,8 +377,7 @@ def show_grid_regions(df, grid_info, types, regions):
     lon_n = grid_info['lon_n']
     lat_n = grid_info['lat_n']
 
-
-    mapit = folium.Map(location=[37.09, -95.71], zoom_start=5, tiles="Stamen Toner")
+    mapit = folium.Map(location=[37.09, -95.71], zoom_start=5, tiles="CartoDB positron")
 
     for region in regions:
 
@@ -412,33 +407,32 @@ def show_grid_regions(df, grid_info, types, regions):
 
 def show_circular_region(df, types, region):
 
-    mapit = folium.Map(location=[37.09, -95.71], zoom_start=5, tiles="Stamen Toner")
+    mapit = folium.Map(location=[37.09, -95.71], zoom_start=5, tiles="CartoDB positron")
 
     r = region['radius'] * 111320 ## roughly convert diff in lat/lon to meters
 
     n, p, rho = get_simple_stats(region['points'], types)
 
     folium.Circle(location=id2loc(df, region['center']), color='#0000FF', fill_color='#0000FF', fill=True, opacity=0.4, fill_opacity=0.4, radius=r, tooltip=f'{n=}, {p=}, rho={rho:.2f}' ).add_to( mapit )
-    
+
     for point in region['points']:
         if types[point] == 1:
             folium.CircleMarker( location=id2loc(df, point), color='#00FF00', fill_color='#00FF00', fill=True, opacity=0.4, fill_opacity=0.4, radius=2 ).add_to( mapit )
         else:
             folium.CircleMarker( location=id2loc(df, point), color='#FF0000', fill_color='#FF0000', fill=True, opacity=0.4, fill_opacity=0.4, radius=2 ).add_to( mapit )
-    
+
     return mapit
 
 
 def show_circular_regions(df, types, regions):
-    
-    mapit = folium.Map(location=[37.09, -95.71], zoom_start=5, tiles="Stamen Toner")
+    mapit = folium.Map(location=[37.09, -95.71], zoom_start=5, tiles="CartoDB positron")
 
     for region in regions:
         n, p, rho = get_simple_stats(region['points'], types)
-        
+
         # r = region['radius'] * 111320 ## roughly convert diff in lat/lon to meters
         # folium.Circle(location=id2loc(df, region['center']), color='#0000FF', fill_color='#0000FF', fill=True, opacity=0.4, fill_opacity=0.4, radius=r, tooltip=f'{n=}, {p=}, rho={rho:.2f}' ).add_to( mapit )
-        
+
         r = region['radius']
         c = id2loc(df, region['center'])
         folium.Rectangle([(c[0]-r, c[1]-r), (c[0]+r, c[1]+r)], tooltip=f'{n=}, {p=}, ρ={rho:.2f}').add_to( mapit )
@@ -448,6 +442,45 @@ def show_circular_regions(df, types, regions):
                 folium.CircleMarker( location=id2loc(df, point), color='#00FF00', fill_color='#00FF00', fill=True, opacity=0.4, fill_opacity=0.4, radius=2 ).add_to( mapit )
             else:
                 folium.CircleMarker( location=id2loc(df, point), color='#FF0000', fill_color='#FF0000', fill=True, opacity=0.4, fill_opacity=0.4, radius=2 ).add_to( mapit )
-        
+
     return mapit
 
+
+def intersects(regionA, regionB, df):
+    cA = np.array(id2loc(df, regionA['center']))
+    cB = np.array(id2loc(df, regionB['center']))
+    rA = regionA['radius']
+    rB = regionB['radius']
+
+    A_top_right = cA + np.array([rA, rA])
+    A_bottom_left = cA - np.array([rA, rA])
+    B_top_right = cB + np.array([rB, rB])
+    B_bottom_left = cB - np.array([rB, rB])
+
+    return not (A_top_right[0] < B_bottom_left[0] or A_bottom_left[0] > B_top_right[0] or A_top_right[1] < B_bottom_left[1] or A_bottom_left[1] > B_top_right[1])
+
+def create_partitioning(df, rtree, lon_min: float, lon_max: float, lat_min: float, lat_max: float, lon_n: float, lat_n: float):
+    grid_info = {
+        'lon_min': lon_min, 'lon_max': lon_max,
+        'lat_min': lat_min, 'lat_max': lat_max,
+        'lat_n': lat_n, 'lon_n': lon_n
+    }
+    grid_loc2_idx = {}
+    partitions = []
+
+    for i in range(lat_n):
+        lat_start = lat_min + (i/lat_n)*(lat_max - lat_min)
+        lat_end = lat_min + ((i+1)/lat_n)*(lat_max - lat_min)
+        for j in range(lon_n):
+            lon_start = lon_min + (j/lon_n)*(lon_max - lon_min)
+            lon_end = lon_min + ((j+1)/lon_n)*(lon_max - lon_min)
+
+            points = query_range_box(df, rtree, lon_start, lon_end, lat_start, lat_end)
+            partition  = {
+                'grid_loc': (j, i),
+                'points' : points,
+            }
+            grid_loc2_idx[(j,i)] = len(partitions)
+            partitions.append(partition)
+
+    return grid_info, grid_loc2_idx, partitions
