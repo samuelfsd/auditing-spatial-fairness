@@ -1,18 +1,46 @@
+import argparse
 import pandas as pd
 import numpy as np
 from src.functions import *
 import os
 
 def main():
-    print("init audit process...")
+    parser = argparse.ArgumentParser(description="Auditoria Espacial de Justiça Algorítmica")
+    parser.add_argument(
+        '--dataset',
+        type=str,
+        choices=['lar', 'crime', 'synth_fair', 'synth_unfair', 'semisynth'],
+        default='lar', # Padrão: se não passar flag, roda o LAR
+        help="Escolha qual dataset auditar (ex: lar, crime, synth_fair)."
+    )
 
-    # loan data
-    # df = load_data('./data/LAR.csv')
-    # label = 'action_taken'
+    args = parser.parse_args()
 
-    # crime data
-    df = load_data('./data/Crime.csv')
-    label = 'pred'
+    print(f"init audit process in case: {args.dataset.upper()}")
+
+    if args.dataset == 'lar':
+        data_path = './data/LAR.csv'
+        label = 'action_taken'
+    elif args.dataset == 'crime':
+        data_path = './data/Crime.csv'
+        label = 'pred'
+    elif args.dataset == 'synth_fair':
+        data_path = './data/Synth_fair.csv'
+        label = 'label'
+    elif args.dataset == 'synth_unfair':
+        data_path = './data/Synth_unfair.csv'
+        label = 'label'
+    elif args.dataset == 'semisynth':
+        data_path = './data/Semisynth.csv'
+        label = 'label'
+
+    # validation csv
+    if not os.path.exists(data_path):
+        print(f"Erro: Arquivo não encontrado no caminho {data_path}")
+        return
+
+    # load data
+    df = load_data(data_path)
 
     N, P = get_stats(df, label)
     print(f'N={N} pontos totais')
