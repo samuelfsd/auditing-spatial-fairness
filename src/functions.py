@@ -77,7 +77,6 @@ def id2loc(df, point_id):
     return (lat, lon)
 
 
-
 def query_range_box(df, rtree, xmin, xmax, ymin, ymax):
     left, bottom, right, top = xmin, ymin, xmax, ymax
 
@@ -127,32 +126,29 @@ def create_seeds(df, rtree, n_seeds):
 
 
 def compute_max_likeli(n, p, N, P):
-
-    ## l1max =  p*math.log(rho_in) + (n-p)*math.log(1-rho_in) + (P-p)*math.log(rho_out) + (N-n - (P-p))*math.log(1-rho_out)
-    ## handle extreme cases
-
     rho = P/N
-    l0max = P*math.log(rho) + (N-P)*math.log(1-rho)
 
-    if n == 0 or n == N: ## rho_in == 0/0 or rho_out == 0/0
-        l1max = l0max
-        return l1max
+    # handling log(0)
+    def safe_x_log_prob(x, prob):
+        if x <= 0 or prob <= 0:
+            return 0
+        return x * math.log(prob)
 
+    l0max = safe_x_log_prob(P, rho) + safe_x_log_prob(N-P, 1-rho)
+
+    if n == 0 or n == N:
+        return l0max
 
     rho_in = p/n
     rho_out = (P-p)/(N-n)
 
+    # calc 4 terms
+    term1 = safe_x_log_prob(p, rho_in)
+    term2 = safe_x_log_prob(n-p, 1-rho_in)
+    term3 = safe_x_log_prob(P-p, rho_out)
+    term4 = safe_x_log_prob(N-n - (P-p), 1-rho_out)
 
-    if p == 0: ## rho_in == 0
-        l1max = P*math.log(rho_out) + (N-n - P)*math.log(1-rho_out)
-    elif p == n and p == P: ## rho_in == 1 and rho_out == 0
-        l1max = 0
-    elif p == n: ## rho_in == 1
-        l1max = (P-p)*math.log(rho_out) + (N-P)*math.log(1-rho_out)
-    elif p == P: ## rho_out == 0
-        l1max = p*math.log(rho_in) + (n-p)*math.log(1-rho_in)
-    else:
-        l1max =  p*math.log(rho_in) + (n-p)*math.log(1-rho_in) + (P-p)*math.log(rho_out) + (N-n - (P-p))*math.log(1-rho_out)
+    l1max = term1 + term2 + term3 + term4
 
     return l1max
 
